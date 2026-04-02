@@ -1,12 +1,12 @@
-import type { Member } from "@/lib/types";
+import type { Balance } from "@/lib/types";
 import MemberAvatar from "./MemberAvatar";
 
 interface BalanceCardProps {
-  member: Member;
-  balance: number;
+  balance: Balance;
 }
 
-export default function BalanceCard({ member, balance: amount }: BalanceCardProps) {
+export default function BalanceCard({ balance }: BalanceCardProps) {
+  const { member, amount } = balance;
   const isPositive = amount > 0.005;
   const isNegative = amount < -0.005;
 
