@@ -43,7 +43,7 @@ export default function ExpenseMatrix({
 
   const sorted = [...expenses].reverse();
 
-  // Calculate net balances: what each person paid minus their fair share
+  // Calculate net balances factoring in settled splits
   const memberPaid: Record<string, number> = {};
   const memberOwes: Record<string, number> = {};
   for (const m of members) {
@@ -56,10 +56,13 @@ export default function ExpenseMatrix({
     if (memberPaid[expense.paid_by] !== undefined) {
       memberPaid[expense.paid_by] += expense.amount;
     }
-    // Debit each splitter
+    // Debit each splitter (skip if they've already settled this split)
     for (const id of expense.split_between) {
       if (memberOwes[id] !== undefined) {
-        memberOwes[id] += perPerson;
+        const settled = isSettledSplit(trip, expense.id, id);
+        if (!settled) {
+          memberOwes[id] += perPerson;
+        }
       }
     }
   }
