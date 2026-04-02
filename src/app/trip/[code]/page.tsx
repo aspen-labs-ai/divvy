@@ -1,10 +1,10 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
-import { getTrip, addMember, deleteMember, deleteExpense } from "@/lib/storage";
+import { addMember, deleteMember, deleteExpense } from "@/lib/storage";
+import { useTrip } from "@/lib/useTrip";
 import { calculateBalances } from "@/lib/settlement";
-import type { Trip } from "@/lib/types";
 import MemberAvatar from "@/components/MemberAvatar";
 import ExpenseCard from "@/components/ExpenseCard";
 import BalanceCard from "@/components/BalanceCard";
@@ -16,16 +16,9 @@ export default function TripPage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = use(params);
-  const [trip, setTrip] = useState<Trip | null>(null);
-  const [notFound, setNotFound] = useState(false);
+  const { trip, setTrip, notFound } = useTrip(code);
   const [showAddMember, setShowAddMember] = useState(false);
   const [activeTab, setActiveTab] = useState<"expenses" | "balances">("expenses");
-
-  useEffect(() => {
-    const t = getTrip(code);
-    if (!t) setNotFound(true);
-    else setTrip(t);
-  }, [code]);
 
   const handleAddMember = (name: string) => {
     if (!trip) return;

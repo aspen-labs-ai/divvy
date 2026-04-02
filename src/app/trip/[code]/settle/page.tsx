@@ -2,9 +2,9 @@
 
 import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getTrip } from "@/lib/storage";
+import { useTrip } from "@/lib/useTrip";
 import { calculateBalances, calculateSettlements } from "@/lib/settlement";
-import type { Trip, Settlement } from "@/lib/types";
+import type { Settlement } from "@/lib/types";
 import Header from "@/components/Header";
 import MemberAvatar from "@/components/MemberAvatar";
 
@@ -15,17 +15,14 @@ export default function SettlePage({
 }) {
   const { code } = use(params);
   const router = useRouter();
-  const [trip, setTrip] = useState<Trip | null>(null);
+  const { trip, notFound } = useTrip(code);
   const [settled, setSettled] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    const t = getTrip(code);
-    if (!t) {
+    if (notFound) {
       router.replace(`/trip/${code}`);
-      return;
     }
-    setTrip(t);
-  }, [code, router]);
+  }, [notFound, router, code]);
 
   const toggleSettled = (i: number) => {
     setSettled((prev) => {

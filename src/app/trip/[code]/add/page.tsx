@@ -2,8 +2,8 @@
 
 import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getTrip, addExpense } from "@/lib/storage";
-import type { Trip } from "@/lib/types";
+import { addExpense } from "@/lib/storage";
+import { useTrip } from "@/lib/useTrip";
 import Header from "@/components/Header";
 import MemberAvatar from "@/components/MemberAvatar";
 
@@ -15,24 +15,28 @@ export default function AddExpensePage({
   const { code } = use(params);
   const router = useRouter();
 
-  const [trip, setTrip] = useState<Trip | null>(null);
+  const { trip, setTrip, notFound } = useTrip(code);
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [paidBy, setPaidBy] = useState("");
   const [splitBetween, setSplitBetween] = useState<string[]>([]);
+  const [initialized, setInitialized] = useState(false);
 
+  // Redirect if trip not found
   useEffect(() => {
-    const t = getTrip(code);
-    if (!t) {
+    if (notFound) {
       router.replace(`/trip/${code}`);
-      return;
     }
-    setTrip(t);
-    if (t.members.length > 0) {
-      setPaidBy(t.members[0].id);
-      setSplitBetween(t.members.map((m) => m.id)); // all selected by default
+  }, [notFound, router, code]);
+
+  // Initialize paid-by and split-between defaults when trip loads
+  useEffect(() => {
+    if (trip && !initialized && trip.members.length > 0) {
+      setPaidBy(trip.members[0].id);
+      setSplitBetween(trip.members.map((m) => m.id));
+      setInitialized(true);
     }
-  }, [code, router]);
+  }, [trip, initialized]);
 
   const toggleSplit = (id: string) => {
     setSplitBetween((prev) =>
