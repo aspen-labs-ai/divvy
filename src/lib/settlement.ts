@@ -1,49 +1,50 @@
-import type { Member, Expense, ExpenseSplit, BalanceEntry, Settlement } from './types'
+import type { Member, Expense, ExpenseSplit, Balance, Settlement } from './types'
 
 export function calculateBalances(
   members: Member[],
   expenses: Expense[],
   splits: ExpenseSplit[],
-): BalanceEntry[] {
-  // Map memberId → net balance
+): Balance[] {
+  // Map memberId → net balance in cents (integer to avoid float drift)
   const balanceMap = new Map<string, number>(members.map((m) => [m.id, 0]))
 
   for (const expense of expenses) {
     const expenseSplits = splits.filter((s) => s.expense_id === expense.id)
     if (expenseSplits.length === 0) continue
 
-    const share = Number(expense.amount) / expenseSplits.length
+    const totalCents = Math.round(Number(expense.amount) * 100)
+    const shareCents = Math.round(totalCents / expenseSplits.length)
 
     // Payer is credited the full amount
     const current = balanceMap.get(expense.paid_by) ?? 0
-    balanceMap.set(expense.paid_by, current + Number(expense.amount))
+    balanceMap.set(expense.paid_by, current + totalCents)
 
-    // Each participant (including payer) owes their share
+    // Each participant owes their share
     for (const split of expenseSplits) {
       const memberBalance = balanceMap.get(split.member_id) ?? 0
-      balanceMap.set(split.member_id, memberBalance - share)
+      balanceMap.set(split.member_id, memberBalance - shareCents)
     }
   }
 
   return members.map((member) => ({
     member,
-    balance: Math.round((balanceMap.get(member.id) ?? 0) * 100) / 100,
+    amount: (balanceMap.get(member.id) ?? 0) / 100,
   }))
 }
 
-export function calculateSettlements(balances: BalanceEntry[]): Settlement[] {
+export function calculateSettlements(balances: Balance[]): Settlement[] {
   const settlements: Settlement[] = []
 
-  // Work with mutable copies, scaled to cents to avoid float issues
+  // Work in cents to avoid float issues
   const debtors = balances
-    .filter((b) => b.balance < -0.005)
-    .map((b) => ({ member: b.member, amount: Math.round(b.balance * 100) }))
-    .sort((a, b) => a.amount - b.amount) // most negative first
+    .filter((b) => b.amount < -0.005)
+    .map((b) => ({ member: b.member, cents: Math.round(Math.abs(b.amount) * 100) }))
+    .sort((a, b) => b.cents - a.cents) // largest debt first
 
   const creditors = balances
-    .filter((b) => b.balance > 0.005)
-    .map((b) => ({ member: b.member, amount: Math.round(b.balance * 100) }))
-    .sort((a, b) => b.amount - a.amount) // largest first
+    .filter((b) => b.amount > 0.005)
+    .map((b) => ({ member: b.member, cents: Math.round(b.amount * 100) }))
+    .sort((a, b) => b.cents - a.cents) // largest credit first
 
   let di = 0
   let ci = 0
@@ -51,22 +52,21 @@ export function calculateSettlements(balances: BalanceEntry[]): Settlement[] {
   while (di < debtors.length && ci < creditors.length) {
     const debtor = debtors[di]
     const creditor = creditors[ci]
-
-    const transferCents = Math.min(Math.abs(debtor.amount), creditor.amount)
+    const transferCents = Math.min(debtor.cents, creditor.cents)
 
     if (transferCents > 0) {
       settlements.push({
         from: debtor.member,
         to: creditor.member,
-        amount: Math.round(transferCents) / 100,
+        amount: transferCents / 100,
       })
     }
 
-    debtor.amount += transferCents
-    creditor.amount -= transferCents
+    debtor.cents -= transferCents
+    creditor.cents -= transferCents
 
-    if (debtor.amount === 0) di++
-    if (creditor.amount === 0) ci++
+    if (debtor.cents === 0) di++
+    if (creditor.cents === 0) ci++
   }
 
   return settlements

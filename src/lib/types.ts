@@ -1,3 +1,6 @@
+// src/lib/types.ts
+
+// --- DB Row types ---
 export interface Trip {
   id: string
   code: string
@@ -28,37 +31,56 @@ export interface ExpenseSplit {
   member_id: string
 }
 
-export interface CreateTripInput {
-  name: string
+// --- Composite types ---
+export type ExpenseWithSplits = Expense & {
+  splits: ExpenseSplit[]
+  paidByMember?: Member
 }
 
-export interface CreateMemberInput {
-  trip_id: string
-  name: string
-}
-
-export interface CreateExpenseInput {
-  trip_id: string
-  paid_by: string
-  description: string
-  amount: number
-  split_member_ids: string[]
-}
-
-export interface BalanceEntry {
+// --- Helper types ---
+export interface Balance {
   member: Member
-  balance: number // positive = owed money, negative = owes money
+  amount: number  // positive = owed money, negative = owes money
 }
 
 export interface Settlement {
   from: Member
   to: Member
-  amount: number
+  amount: number  // always positive
 }
 
-export interface TripData {
-  trip: Trip
-  members: Member[]
-  expenses: Expense[]
-  splits: ExpenseSplit[]
+// --- Supabase Database type for typed client ---
+export type Database = {
+  public: {
+    Tables: {
+      trips: {
+        Row: Trip
+        Insert: Omit<Trip, 'id' | 'created_at'>
+        Update: Partial<Omit<Trip, 'id' | 'created_at'>>
+        Relationships: []
+      }
+      members: {
+        Row: Member
+        Insert: Omit<Member, 'id' | 'created_at'>
+        Update: Partial<Omit<Member, 'id' | 'created_at'>>
+        Relationships: []
+      }
+      expenses: {
+        Row: Expense
+        Insert: Omit<Expense, 'id' | 'created_at'>
+        Update: Partial<Omit<Expense, 'id' | 'created_at'>>
+        Relationships: []
+      }
+      expense_splits: {
+        Row: ExpenseSplit
+        Insert: Omit<ExpenseSplit, 'id'>
+        Update: Partial<Omit<ExpenseSplit, 'id'>>
+        Relationships: []
+      }
+    }
+    Views: Record<string, never>
+    Functions: Record<string, never>
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
+  }
 }
