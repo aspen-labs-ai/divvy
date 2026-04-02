@@ -104,7 +104,7 @@ export default function ExpenseMatrix({
                 Expense
               </th>
               {members.map((m) => (
-                <th key={m.id} className="py-2 px-1 text-center w-10">
+                <th key={m.id} className="py-2 px-2 text-center min-w-[56px]">
                   <div className="flex flex-col items-center gap-1">
                     <MemberAvatar name={m.name} color={m.avatar_color} size="sm" />
                     <span className="text-[#a1a1aa] text-[10px] max-w-[40px] truncate block">
@@ -141,15 +141,15 @@ export default function ExpenseMatrix({
                     const settled = isSettledSplit(trip, expense.id, m.id);
 
                     if (isPayer) {
-                      // Payer: bold filled circle with star icon
+                      // Payer: solid color circle with bold white $
                       return (
-                        <td key={m.id} className="py-3 px-1 text-center">
+                        <td key={m.id} className="py-3 px-2 text-center">
                           <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center mx-auto text-white relative"
+                            className="w-9 h-9 rounded-full flex items-center justify-center mx-auto text-white font-black text-lg ring-2 ring-white/20"
                             style={{ backgroundColor: m.avatar_color }}
                             title={`${m.name} paid $${expense.amount.toFixed(2)}`}
                           >
-                            <span className="text-sm">💳</span>
+                            $
                           </div>
                         </td>
                       );
@@ -158,7 +158,7 @@ export default function ExpenseMatrix({
                     if (isSplitting) {
                       // Splitter: clickable, shows settled state
                       return (
-                        <td key={m.id} className="py-3 px-1 text-center">
+                        <td key={m.id} className="py-3 px-2 text-center">
                           <button
                             onClick={() =>
                               handleCellClick(
@@ -215,8 +215,8 @@ export default function ExpenseMatrix({
 
                     // Not involved
                     return (
-                      <td key={m.id} className="py-3 px-1 text-center">
-                        <div className="w-8 h-8 flex items-center justify-center mx-auto">
+                      <td key={m.id} className="py-3 px-2 text-center">
+                        <div className="w-9 h-9 flex items-center justify-center mx-auto">
                           <span className="text-[#2a2a2a] text-xs">—</span>
                         </div>
                       </td>
@@ -237,11 +237,19 @@ export default function ExpenseMatrix({
                 const net = Math.round(memberNet[m.id] * 100) / 100;
                 const isPositive = net > 0.005;
                 const isNegative = net < -0.005;
+                const abs = Math.abs(net);
+                // Abbreviate: $1,234.56 → $1.2k
+                const formatted =
+                  abs >= 1000
+                    ? `$${(abs / 1000).toFixed(1)}k`
+                    : abs >= 100
+                    ? `$${Math.round(abs)}`
+                    : `$${abs.toFixed(2)}`;
 
                 return (
-                  <td key={m.id} className="py-3 px-1 text-center">
+                  <td key={m.id} className="py-3 px-2 text-center min-w-[56px]">
                     <p
-                      className={`text-xs font-bold ${
+                      className={`text-[11px] font-bold whitespace-nowrap ${
                         isPositive
                           ? "text-[#22c55e]"
                           : isNegative
@@ -249,11 +257,8 @@ export default function ExpenseMatrix({
                           : "text-[#a1a1aa]"
                       }`}
                     >
-                      {isPositive
-                        ? `+$${net.toFixed(2)}`
-                        : isNegative
-                        ? `-$${Math.abs(net).toFixed(2)}`
-                        : "$0.00"}
+                      {isPositive ? "+" : isNegative ? "-" : ""}
+                      {isPositive || isNegative ? formatted : "$0"}
                     </p>
                   </td>
                 );
@@ -265,7 +270,9 @@ export default function ExpenseMatrix({
         {/* Legend */}
         <div className="flex items-center gap-4 mt-4 pt-3 border-t border-[#1a1a1a] text-[10px] text-[#a1a1aa] uppercase tracking-wider flex-wrap">
           <div className="flex items-center gap-1.5">
-            <span className="text-sm">💳</span>
+            <div className="w-4 h-4 rounded-full bg-[#a1a1aa] flex items-center justify-center text-white text-[9px] font-black ring-1 ring-white/20">
+              $
+            </div>
             <span>Paid</span>
           </div>
           <div className="flex items-center gap-1.5">
