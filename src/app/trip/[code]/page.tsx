@@ -7,6 +7,7 @@ import { useTrip } from "@/lib/useTrip";
 import { calculateBalances } from "@/lib/settlement";
 import MemberAvatar from "@/components/MemberAvatar";
 import ExpenseCard from "@/components/ExpenseCard";
+import ExpenseMatrix from "@/components/ExpenseMatrix";
 import BalanceCard from "@/components/BalanceCard";
 import AddMemberModal from "@/components/AddMemberModal";
 
@@ -19,6 +20,7 @@ export default function TripPage({
   const { trip, setTrip, notFound } = useTrip(code);
   const [showAddMember, setShowAddMember] = useState(false);
   const [activeTab, setActiveTab] = useState<"expenses" | "balances">("expenses");
+  const [expenseView, setExpenseView] = useState<"list" | "matrix">("list");
 
   const handleAddMember = (name: string) => {
     if (!trip) return;
@@ -170,28 +172,75 @@ export default function TripPage({
 
         {/* Expenses tab */}
         {activeTab === "expenses" && (
-          <div className="mt-4 space-y-3">
-            {trip.expenses.length === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-4xl mb-3">🧾</p>
-                <p className="text-white font-medium mb-1">No expenses yet</p>
-                <p className="text-sm text-[#a1a1aa]">
-                  {trip.members.length < 2
-                    ? "Add at least 2 members first"
-                    : "Tap + to add the first expense"}
-                </p>
+          <div className="mt-4">
+            {/* View toggle */}
+            {trip.expenses.length > 0 && (
+              <div className="flex items-center justify-end mb-3">
+                <div className="flex bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-0.5">
+                  <button
+                    onClick={() => setExpenseView("list")}
+                    className={`p-1.5 rounded-md transition-colors ${
+                      expenseView === "list"
+                        ? "bg-[#2a2a2a] text-white"
+                        : "text-[#a1a1aa] hover:text-white"
+                    }`}
+                    title="List view"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setExpenseView("matrix")}
+                    className={`p-1.5 rounded-md transition-colors ${
+                      expenseView === "matrix"
+                        ? "bg-[#2a2a2a] text-white"
+                        : "text-[#a1a1aa] hover:text-white"
+                    }`}
+                    title="Matrix view"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+                      <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+                      <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+                      <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {expenseView === "list" ? (
+              <div className="space-y-3">
+                {trip.expenses.length === 0 ? (
+                  <div className="text-center py-16">
+                    <p className="text-4xl mb-3">🧾</p>
+                    <p className="text-white font-medium mb-1">No expenses yet</p>
+                    <p className="text-sm text-[#a1a1aa]">
+                      {trip.members.length < 2
+                        ? "Add at least 2 members first"
+                        : "Tap + to add the first expense"}
+                    </p>
+                  </div>
+                ) : (
+                  [...trip.expenses]
+                    .reverse()
+                    .map((expense) => (
+                      <ExpenseCard
+                        key={expense.id}
+                        expense={expense}
+                        members={trip.members}
+                        onDelete={handleDeleteExpense}
+                      />
+                    ))
+                )}
               </div>
             ) : (
-              [...trip.expenses]
-                .reverse()
-                .map((expense) => (
-                  <ExpenseCard
-                    key={expense.id}
-                    expense={expense}
-                    members={trip.members}
-                    onDelete={handleDeleteExpense}
-                  />
-                ))
+              <ExpenseMatrix
+                expenses={trip.expenses}
+                members={trip.members}
+                onDelete={handleDeleteExpense}
+              />
             )}
           </div>
         )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { getTrip } from "./storage";
 import type { Trip } from "./types";
 
@@ -11,6 +12,7 @@ import type { Trip } from "./types";
 export function useTrip(code: string) {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const pathname = usePathname();
 
   const refresh = useCallback(() => {
     const t = getTrip(code);
@@ -23,10 +25,13 @@ export function useTrip(code: string) {
     }
   }, [code]);
 
-  // Read on mount (always runs, even if code is the same)
+  // Re-read on mount and on every client-side navigation (pathname change).
+  // This is the fix for Next.js App Router: navigating /trip/CODE/add → /trip/CODE
+  // doesn't change `code`, so a plain useEffect([code]) won't re-fire. Adding
+  // `pathname` as a dep catches the route change and re-reads localStorage.
   useEffect(() => {
     refresh();
-  }, [refresh]);
+  }, [refresh, pathname]);
 
   // Re-read when tab regains focus or becomes visible
   useEffect(() => {
