@@ -1,5 +1,3 @@
-// src/lib/types.ts
-
 // --- DB Row types ---
 export interface Trip {
   id: string
@@ -31,12 +29,6 @@ export interface ExpenseSplit {
   member_id: string
 }
 
-// --- Composite types ---
-export type ExpenseWithSplits = Expense & {
-  splits: ExpenseSplit[]
-  paidByMember?: Member
-}
-
 // --- Helper types ---
 export interface Balance {
   member: Member
@@ -49,38 +41,55 @@ export interface Settlement {
   amount: number  // always positive
 }
 
-// --- Supabase Database type for typed client ---
+// Internal shape required by @supabase/supabase-js GenericTable
+type Relationship = {
+  foreignKeyName: string
+  columns: string[]
+  isOneToOne?: boolean
+  referencedRelation: string
+  referencedColumns: string[]
+}
+
+// --- Supabase Database type for typed client (matches Supabase CLI generated shape) ---
 export type Database = {
   public: {
     Tables: {
       trips: {
         Row: Trip
-        Insert: Omit<Trip, 'id' | 'created_at'>
-        Update: Partial<Omit<Trip, 'id' | 'created_at'>>
-        Relationships: []
+        Insert: { name: string; code: string; id?: string; created_at?: string }
+        Update: { name?: string; code?: string; id?: string; created_at?: string }
+        Relationships: Relationship[]
       }
       members: {
         Row: Member
-        Insert: Omit<Member, 'id' | 'created_at'>
-        Update: Partial<Omit<Member, 'id' | 'created_at'>>
-        Relationships: []
+        Insert: { trip_id: string; name: string; avatar_color?: string; id?: string; created_at?: string }
+        Update: { trip_id?: string; name?: string; avatar_color?: string; id?: string; created_at?: string }
+        Relationships: Relationship[]
       }
       expenses: {
         Row: Expense
-        Insert: Omit<Expense, 'id' | 'created_at'>
-        Update: Partial<Omit<Expense, 'id' | 'created_at'>>
-        Relationships: []
+        Insert: { trip_id: string; paid_by: string; description: string; amount: number; id?: string; created_at?: string }
+        Update: { trip_id?: string; paid_by?: string; description?: string; amount?: number; id?: string; created_at?: string }
+        Relationships: Relationship[]
       }
       expense_splits: {
         Row: ExpenseSplit
-        Insert: Omit<ExpenseSplit, 'id'>
-        Update: Partial<Omit<ExpenseSplit, 'id'>>
-        Relationships: []
+        Insert: { expense_id: string; member_id: string; id?: string }
+        Update: { expense_id?: string; member_id?: string; id?: string }
+        Relationships: Relationship[]
       }
     }
-    Views: Record<string, never>
-    Functions: Record<string, never>
-    Enums: Record<string, never>
-    CompositeTypes: Record<string, never>
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
 }
