@@ -20,7 +20,7 @@ export default function TripPage({
   const { trip, setTrip, notFound } = useTrip(code);
   const [showAddMember, setShowAddMember] = useState(false);
   const [activeTab, setActiveTab] = useState<"expenses" | "balances">("expenses");
-  const [expenseView, setExpenseView] = useState<"list" | "matrix">("list");
+  const [expenseView, setExpenseView] = useState<"list" | "matrix">("matrix");
 
   const handleAddMember = (name: string) => {
     if (!trip) return;
@@ -239,7 +239,6 @@ export default function TripPage({
               <ExpenseMatrix
                 expenses={trip.expenses}
                 members={trip.members}
-                onDelete={handleDeleteExpense}
               />
             )}
           </div>

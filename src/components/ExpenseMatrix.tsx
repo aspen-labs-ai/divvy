@@ -4,10 +4,9 @@ import MemberAvatar from "./MemberAvatar";
 interface ExpenseMatrixProps {
   expenses: Expense[];
   members: Member[];
-  onDelete?: (id: string) => void;
 }
 
-export default function ExpenseMatrix({ expenses, members, onDelete }: ExpenseMatrixProps) {
+export default function ExpenseMatrix({ expenses, members }: ExpenseMatrixProps) {
   if (expenses.length === 0 || members.length === 0) {
     return (
       <div className="text-center py-16">
@@ -24,10 +23,24 @@ export default function ExpenseMatrix({ expenses, members, onDelete }: ExpenseMa
 
   const sorted = [...expenses].reverse();
 
+  // Calculate per-person share totals
+  const memberTotals: Record<string, number> = {};
+  for (const m of members) {
+    memberTotals[m.id] = 0;
+  }
+  for (const expense of expenses) {
+    const perPerson = expense.amount / expense.split_between.length;
+    for (const id of expense.split_between) {
+      if (memberTotals[id] !== undefined) {
+        memberTotals[id] += perPerson;
+      }
+    }
+  }
+
   return (
     <div className="overflow-x-auto -mx-4 px-4">
       <table className="w-full min-w-[400px] border-collapse">
-        {/* Header: member avatars */}
+        {/* Header: member avatars + total column */}
         <thead>
           <tr>
             <th className="text-left text-[#a1a1aa] text-xs font-semibold uppercase tracking-wider py-2 pr-3 sticky left-0 bg-[#0a0a0a] z-10">
@@ -50,30 +63,17 @@ export default function ExpenseMatrix({ expenses, members, onDelete }: ExpenseMa
           {sorted.map((expense) => (
             <tr
               key={expense.id}
-              className="border-t border-[#1a1a1a] group"
+              className="border-t border-[#1a1a1a]"
             >
               {/* Expense name + amount */}
               <td className="py-3 pr-3 sticky left-0 bg-[#0a0a0a] z-10">
-                <div className="flex items-center justify-between gap-2 min-w-[140px]">
-                  <div className="min-w-0">
-                    <p className="text-white text-sm font-medium truncate max-w-[120px]">
-                      {expense.description}
-                    </p>
-                    <p className="text-[#22c55e] text-xs font-bold">
-                      ${expense.amount.toFixed(2)}
-                    </p>
-                  </div>
-                  {onDelete && (
-                    <button
-                      onClick={() => onDelete(expense.id)}
-                      className="opacity-0 group-hover:opacity-100 text-[#a1a1aa] hover:text-[#ef4444] transition-all flex-shrink-0 p-1"
-                      title="Delete"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                        <path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
-                    </button>
-                  )}
+                <div className="min-w-[120px]">
+                  <p className="text-white text-sm font-medium truncate max-w-[140px]">
+                    {expense.description}
+                  </p>
+                  <p className="text-[#22c55e] text-xs font-bold">
+                    ${expense.amount.toFixed(2)}
+                  </p>
                 </div>
               </td>
 
@@ -85,7 +85,6 @@ export default function ExpenseMatrix({ expenses, members, onDelete }: ExpenseMa
                 return (
                   <td key={m.id} className="py-3 px-1 text-center">
                     {isPayer ? (
-                      /* Paid: filled circle with dollar sign */
                       <div
                         className="w-7 h-7 rounded-full flex items-center justify-center mx-auto text-white text-xs font-bold"
                         style={{ backgroundColor: m.avatar_color }}
@@ -94,7 +93,6 @@ export default function ExpenseMatrix({ expenses, members, onDelete }: ExpenseMa
                         $
                       </div>
                     ) : isSplitting ? (
-                      /* Splitting: ring outline with dot */
                       <div
                         className="w-7 h-7 rounded-full flex items-center justify-center mx-auto border-2"
                         style={{ borderColor: m.avatar_color }}
@@ -106,7 +104,6 @@ export default function ExpenseMatrix({ expenses, members, onDelete }: ExpenseMa
                         />
                       </div>
                     ) : (
-                      /* Not involved: dim dash */
                       <div className="w-7 h-7 flex items-center justify-center mx-auto">
                         <span className="text-[#2a2a2a] text-xs">—</span>
                       </div>
@@ -116,6 +113,25 @@ export default function ExpenseMatrix({ expenses, members, onDelete }: ExpenseMa
               })}
             </tr>
           ))}
+
+          {/* Totals row */}
+          <tr className="border-t-2 border-[#2a2a2a]">
+            <td className="py-3 pr-3 sticky left-0 bg-[#0a0a0a] z-10">
+              <p className="text-[#a1a1aa] text-xs font-semibold uppercase tracking-wider">
+                Total owed
+              </p>
+            </td>
+            {members.map((m) => (
+              <td key={m.id} className="py-3 px-1 text-center">
+                <p
+                  className="text-xs font-bold"
+                  style={{ color: m.avatar_color }}
+                >
+                  ${memberTotals[m.id].toFixed(2)}
+                </p>
+              </td>
+            ))}
+          </tr>
         </tbody>
       </table>
 
