@@ -1,13 +1,13 @@
 # CLAUDE.md - Divvy Project Guide
 
 ## What Is This?
-**Divvy** — A dead-simple group expense splitting app. No login, share a link, split bills, see who owes who. Real-time sync.
+**Divvy** — A dead-simple group expense splitting app. No login, no backend. localStorage-based prototype. Share a link, split bills, see who owes who.
 
 ## Tech Stack
 - **Framework:** Next.js 15+ (App Router, `src/` directory)
 - **Language:** TypeScript (strict)
 - **Styling:** Tailwind CSS v4
-- **Database/Realtime:** Supabase (Postgres + Realtime subscriptions)
+- **Data:** localStorage (no database, no backend)
 - **Package Manager:** pnpm
 - **Deployment:** Vercel
 
@@ -15,13 +15,50 @@
 - **Theme:** Dark mode ONLY (no light mode toggle)
 - **Primary background:** `#0a0a0a` (near-black)
 - **Card background:** `#1a1a1a` with subtle border `#2a2a2a`
-- **Accent color:** `#22c55e` (green-500) — used for CTAs, active states, amounts
+- **Accent color:** `#22c55e` (green-500) — used for CTAs, active states, positive amounts
+- **Negative amounts:** `#ef4444` (red-500)
 - **Text:** White (`#fafafa`) primary, `#a1a1aa` secondary
 - **Font:** System font stack (Inter if available)
 - **Border radius:** Generous (rounded-xl for cards, rounded-full for avatars)
 - **Mobile-first:** Everything must look great on 375px width
+- **Vibe:** Premium fintech app. Dark background, neon green accents, card-based layout, avatar circles for group members.
 
 ## Architecture
+
+### Data Model (localStorage)
+All trip data stored in localStorage under key `divvy_trip_{code}`:
+
+```typescript
+interface Trip {
+  id: string;
+  code: string;        // 6-char shareable code
+  name: string;
+  members: Member[];
+  expenses: Expense[];
+  createdAt: string;
+}
+
+interface Member {
+  id: string;
+  name: string;
+  avatarColor: string; // hex color for avatar circle
+}
+
+interface Expense {
+  id: string;
+  description: string;
+  amount: number;
+  paidById: string;      // member id
+  splitBetween: string[]; // member ids
+  createdAt: string;
+}
+
+interface Settlement {
+  fromId: string;
+  toId: string;
+  amount: number;
+}
+```
 
 ### Routes
 ```
@@ -31,74 +68,35 @@
 /trip/[code]/settle   → Settlement view (who owes who)
 ```
 
-### Database Schema (Supabase)
-```sql
--- Trips
-CREATE TABLE trips (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  code VARCHAR(8) UNIQUE NOT NULL,  -- short shareable code
-  name VARCHAR(100) NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Members (no auth, just names)
-CREATE TABLE members (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
-  name VARCHAR(50) NOT NULL,
-  avatar_color VARCHAR(7) DEFAULT '#22c55e',  -- hex color for avatar circle
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Expenses
-CREATE TABLE expenses (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
-  paid_by UUID REFERENCES members(id) ON DELETE CASCADE,
-  description VARCHAR(200) NOT NULL,
-  amount DECIMAL(10,2) NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Expense splits (who was part of this expense)
-CREATE TABLE expense_splits (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  expense_id UUID REFERENCES expenses(id) ON DELETE CASCADE,
-  member_id UUID REFERENCES members(id) ON DELETE CASCADE,
-  UNIQUE(expense_id, member_id)
-);
-```
-
-### Key Features
-1. **Create Trip** — Name it, get a shareable link with short code
-2. **Add Members** — Just names + auto-assigned avatar colors
-3. **Add Expense** — Who paid, amount, description, select who was involved
-4. **Real-time Balances** — Live-updating balance per member (positive = owed, negative = owes)
-5. **Settlement** — Optimized "who pays who" to minimize transactions
-6. **Share Link** — Copy trip link to invite others
+### Trip Index
+Also store a trip index in localStorage key `divvy_trips` — array of `{code, name, createdAt}` so the landing page can show "Your recent trips".
 
 ### Settlement Algorithm
-Use the greedy algorithm:
-1. Calculate net balance for each person (total paid - total owed)
-2. Sort into debtors (negative) and creditors (positive)  
+Greedy algorithm:
+1. Calculate net balance for each person (total paid - total share owed)
+2. Sort into debtors (negative) and creditors (positive)
 3. Match largest debtor with largest creditor
 4. Transfer min(|debt|, credit) between them
 5. Repeat until settled
+6. Use integer cents internally to avoid floating-point drift
+
+### Avatar Color Palette
+Auto-assign from: `["#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#14b8a6", "#a855f7"]`
 
 ## Commands
 ```bash
 pnpm dev          # Development server
-pnpm build        # Production build
+pnpm build        # Production build  
 pnpm lint         # ESLint
-pnpm typecheck    # TypeScript check (add to package.json: "typecheck": "tsc --noEmit")
 ```
 
 ## Rules
-- Mobile-first responsive design
+- Mobile-first responsive design (max-w-md mx-auto for main content)
 - All monetary amounts displayed as USD with 2 decimal places
-- Use Supabase Realtime for live updates (subscribe to changes)
-- No authentication — anyone with the trip link can view/edit
-- Avatar colors auto-assigned from a preset palette
-- Short trip codes (6-8 chars, alphanumeric, URL-safe)
+- No authentication, no backend — pure client-side localStorage
+- Anyone with the trip code can view/edit (on the same device for now)
+- Short trip codes (6 chars, alphanumeric, uppercase)
 - Expense amounts must be positive numbers
 - At least one member must be selected for each expense split
+- "use client" directive on all pages that use state/effects
+- All styling via Tailwind classes
