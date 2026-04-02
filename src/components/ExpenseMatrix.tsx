@@ -43,25 +43,26 @@ export default function ExpenseMatrix({
 
   const sorted = [...expenses].reverse();
 
-  // Calculate net balances factoring in settled splits
-  const memberPaid: Record<string, number> = {};
-  const memberOwes: Record<string, number> = {};
+  // Calculate what each person owes or is owed, factoring in settled splits.
+  // For each expense, non-payer splitters owe the payer their share.
+  // When a split is settled, that debt is cleared for both sides.
+  const memberNet: Record<string, number> = {};
   for (const m of members) {
-    memberPaid[m.id] = 0;
-    memberOwes[m.id] = 0;
+    memberNet[m.id] = 0;
   }
   for (const expense of expenses) {
     const perPerson = expense.amount / expense.split_between.length;
-    // Credit the payer
-    if (memberPaid[expense.paid_by] !== undefined) {
-      memberPaid[expense.paid_by] += expense.amount;
-    }
-    // Debit each splitter (skip if they've already settled this split)
     for (const id of expense.split_between) {
-      if (memberOwes[id] !== undefined) {
-        const settled = isSettledSplit(trip, expense.id, id);
-        if (!settled) {
-          memberOwes[id] += perPerson;
+      // Skip the payer's own share (they owe themselves nothing)
+      if (id === expense.paid_by) continue;
+      const settled = isSettledSplit(trip, expense.id, id);
+      if (!settled) {
+        // This person still owes the payer
+        if (memberNet[id] !== undefined) {
+          memberNet[id] -= perPerson; // they owe money
+        }
+        if (memberNet[expense.paid_by] !== undefined) {
+          memberNet[expense.paid_by] += perPerson; // they are owed money
         }
       }
     }
@@ -177,7 +178,13 @@ export default function ExpenseMatrix({
                             }
                           >
                             {settled ? (
-                              <div className="w-8 h-8 rounded-full flex items-center justify-center mx-auto bg-[#22c55e]/20 border-2 border-[#22c55e]">
+                              <div
+                                className="w-8 h-8 rounded-full flex items-center justify-center mx-auto border-2"
+                                style={{
+                                  borderColor: m.avatar_color,
+                                  backgroundColor: `${m.avatar_color}20`,
+                                }}
+                              >
                                 <svg
                                   width="14"
                                   height="14"
@@ -186,7 +193,7 @@ export default function ExpenseMatrix({
                                 >
                                   <path
                                     d="M2.5 7L5.5 10L11.5 4"
-                                    stroke="#22c55e"
+                                    stroke={m.avatar_color}
                                     strokeWidth="2"
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
@@ -230,8 +237,7 @@ export default function ExpenseMatrix({
                 </p>
               </td>
               {members.map((m) => {
-                const net =
-                  Math.round((memberPaid[m.id] - memberOwes[m.id]) * 100) / 100;
+                const net = Math.round(memberNet[m.id] * 100) / 100;
                 const isPositive = net > 0.005;
                 const isNegative = net < -0.005;
 
@@ -246,7 +252,11 @@ export default function ExpenseMatrix({
                           : "text-[#a1a1aa]"
                       }`}
                     >
-                      {isPositive ? "+" : ""}${net.toFixed(2)}
+                      {isPositive
+                        ? `+$${net.toFixed(2)}`
+                        : isNegative
+                        ? `-$${Math.abs(net).toFixed(2)}`
+                        : "$0.00"}
                     </p>
                   </td>
                 );
@@ -268,9 +278,9 @@ export default function ExpenseMatrix({
             <span>Owes</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-4 h-4 rounded-full bg-[#22c55e]/20 border-2 border-[#22c55e] flex items-center justify-center">
+            <div className="w-4 h-4 rounded-full bg-[#a1a1aa]/20 border-2 border-[#a1a1aa] flex items-center justify-center">
               <svg width="8" height="8" viewBox="0 0 14 14" fill="none">
-                <path d="M2.5 7L5.5 10L11.5 4" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M2.5 7L5.5 10L11.5 4" stroke="#a1a1aa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
             <span>Settled</span>
