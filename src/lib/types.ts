@@ -19,6 +19,10 @@ export interface Trip {
   name: string;
   members: Member[];
   expenses: Expense[];
+  /** Tracks which individual splits have been marked as paid: "expenseId:memberId" */
+  settled_splits?: string[];
+  /** Tracks which settlements have been marked as done: "fromMemberId>toMemberId" */
+  settled_settlements?: string[];
   created_at: string;
 }
 

@@ -123,7 +123,58 @@ export function deleteExpense(trip: Trip, expenseId: string): Trip {
   const updated = {
     ...trip,
     expenses: trip.expenses.filter((e) => e.id !== expenseId),
+    settled_splits: (trip.settled_splits ?? []).filter(
+      (key) => !key.startsWith(`${expenseId}:`)
+    ),
   };
   saveTrip(updated);
   return updated;
+}
+
+/** Mark or unmark an individual split as paid */
+export function toggleSettledSplit(
+  trip: Trip,
+  expenseId: string,
+  memberId: string
+): Trip {
+  const key = `${expenseId}:${memberId}`;
+  const current = trip.settled_splits ?? [];
+  const settled = current.includes(key)
+    ? current.filter((k) => k !== key)
+    : [...current, key];
+  const updated = { ...trip, settled_splits: settled };
+  saveTrip(updated);
+  return updated;
+}
+
+export function isSettledSplit(
+  trip: Trip,
+  expenseId: string,
+  memberId: string
+): boolean {
+  return (trip.settled_splits ?? []).includes(`${expenseId}:${memberId}`);
+}
+
+/** Mark or unmark a settlement between two members */
+export function toggleSettlement(
+  trip: Trip,
+  fromId: string,
+  toId: string
+): Trip {
+  const key = `${fromId}>${toId}`;
+  const current = trip.settled_settlements ?? [];
+  const settlements = current.includes(key)
+    ? current.filter((k) => k !== key)
+    : [...current, key];
+  const updated = { ...trip, settled_settlements: settlements };
+  saveTrip(updated);
+  return updated;
+}
+
+export function isSettledSettlement(
+  trip: Trip,
+  fromId: string,
+  toId: string
+): boolean {
+  return (trip.settled_settlements ?? []).includes(`${fromId}>${toId}`);
 }

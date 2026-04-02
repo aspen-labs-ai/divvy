@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { addMember, deleteMember, deleteExpense } from "@/lib/storage";
+import { addMember, deleteMember, deleteExpense, toggleSettledSplit } from "@/lib/storage";
 import { useTrip } from "@/lib/useTrip";
 import { calculateBalances } from "@/lib/settlement";
 import MemberAvatar from "@/components/MemberAvatar";
@@ -37,6 +37,11 @@ export default function TripPage({
   const handleDeleteExpense = (expenseId: string) => {
     if (!trip) return;
     setTrip(deleteExpense(trip, expenseId));
+  };
+
+  const handleSettleSplit = (expenseId: string, memberId: string) => {
+    if (!trip) return;
+    setTrip(toggleSettledSplit(trip, expenseId, memberId));
   };
 
   if (notFound) {
@@ -237,8 +242,10 @@ export default function TripPage({
               </div>
             ) : (
               <ExpenseMatrix
+                trip={trip}
                 expenses={trip.expenses}
                 members={trip.members}
+                onSettleSplit={handleSettleSplit}
               />
             )}
           </div>

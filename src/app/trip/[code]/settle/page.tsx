@@ -1,10 +1,10 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTrip } from "@/lib/useTrip";
+import { toggleSettlement, isSettledSettlement } from "@/lib/storage";
 import { calculateBalances, calculateSettlements } from "@/lib/settlement";
-import type { Settlement } from "@/lib/types";
 import Header from "@/components/Header";
 import MemberAvatar from "@/components/MemberAvatar";
 
@@ -15,22 +15,13 @@ export default function SettlePage({
 }) {
   const { code } = use(params);
   const router = useRouter();
-  const { trip, notFound } = useTrip(code);
-  const [settled, setSettled] = useState<Set<number>>(new Set());
+  const { trip, setTrip, notFound } = useTrip(code);
 
   useEffect(() => {
     if (notFound) {
       router.replace(`/trip/${code}`);
     }
   }, [notFound, router, code]);
-
-  const toggleSettled = (i: number) => {
-    setSettled((prev) => {
-      const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
-      return next;
-    });
-  };
 
   if (!trip) {
     return (
@@ -41,14 +32,27 @@ export default function SettlePage({
   }
 
   const balances = calculateBalances(trip.members, trip.expenses);
-  const settlements: Settlement[] = calculateSettlements(balances);
-  const remaining = settlements.length - settled.size;
+  const settlements = calculateSettlements(balances);
+
+  const handleToggle = (fromId: string, toId: string) => {
+    setTrip(toggleSettlement(trip, fromId, toId));
+  };
+
+  const settledCount = settlements.filter((s) =>
+    isSettledSettlement(trip, s.from.id, s.to.id)
+  ).length;
+  const remaining = settlements.length - settledCount;
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       <Header title="Settle Up" backHref={`/trip/${code}`} />
 
       <div className="max-w-md mx-auto px-4 pt-6 pb-10">
+        {/* Explanation */}
+        <p className="text-[#a1a1aa] text-sm mb-4">
+          These are the simplest payments to settle all debts. Mark each one as done when the payment is made.
+        </p>
+
         {/* Summary card */}
         <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-5 mb-6 text-center">
           {remaining === 0 ? (
@@ -82,7 +86,7 @@ export default function SettlePage({
         ) : (
           <div className="space-y-3">
             {settlements.map((s, i) => {
-              const isDone = settled.has(i);
+              const isDone = isSettledSettlement(trip, s.from.id, s.to.id);
               return (
                 <div
                   key={i}
@@ -119,7 +123,7 @@ export default function SettlePage({
                   </div>
 
                   <button
-                    onClick={() => toggleSettled(i)}
+                    onClick={() => handleToggle(s.from.id, s.to.id)}
                     className={`mt-3 w-full rounded-lg py-2 text-sm font-medium transition-colors ${
                       isDone
                         ? "bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/30"
