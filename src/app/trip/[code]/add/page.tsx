@@ -1,16 +1,11 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { getTrip, addExpense } from "@/lib/storage";
+import type { Trip } from "@/lib/types";
 import Header from "@/components/Header";
 import MemberAvatar from "@/components/MemberAvatar";
-
-const mockMembers = [
-  { id: "1", name: "Trey", avatar_color: "#22c55e" },
-  { id: "2", name: "Alex", avatar_color: "#3b82f6" },
-  { id: "3", name: "Sam", avatar_color: "#f59e0b" },
-  { id: "4", name: "Jordan", avatar_color: "#ef4444" },
-];
 
 export default function AddExpensePage({
   params,
@@ -20,12 +15,24 @@ export default function AddExpensePage({
   const { code } = use(params);
   const router = useRouter();
 
+  const [trip, setTrip] = useState<Trip | null>(null);
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [paidBy, setPaidBy] = useState(mockMembers[0].id);
-  const [splitBetween, setSplitBetween] = useState<string[]>(
-    mockMembers.map((m) => m.id)
-  );
+  const [paidBy, setPaidBy] = useState("");
+  const [splitBetween, setSplitBetween] = useState<string[]>([]);
+
+  useEffect(() => {
+    const t = getTrip(code);
+    if (!t) {
+      router.replace(`/trip/${code}`);
+      return;
+    }
+    setTrip(t);
+    if (t.members.length > 0) {
+      setPaidBy(t.members[0].id);
+      setSplitBetween(t.members.map((m) => m.id)); // all selected by default
+    }
+  }, [code, router]);
 
   const toggleSplit = (id: string) => {
     setSplitBetween((prev) =>
@@ -33,18 +40,38 @@ export default function AddExpensePage({
     );
   };
 
+  const parsedAmount = parseFloat(amount);
   const isValid =
     amount.trim() !== "" &&
-    parseFloat(amount) > 0 &&
+    !isNaN(parsedAmount) &&
+    parsedAmount > 0 &&
     description.trim() !== "" &&
+    paidBy !== "" &&
     splitBetween.length > 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isValid) return;
-    console.log("Adding expense:", { amount, description, paidBy, splitBetween });
+    if (!isValid || !trip) return;
+    const updated = addExpense(
+      trip,
+      description,
+      Math.round(parsedAmount * 100) / 100,
+      paidBy,
+      splitBetween
+    );
+    setTrip(updated);
     router.push(`/trip/${code}`);
   };
+
+  if (!trip) {
+    return (
+      <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#22c55e] border-t-transparent rounded-full animate-spin" />
+      </main>
+    );
+  }
+
+  const members = trip.members;
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
@@ -95,7 +122,7 @@ export default function AddExpensePage({
             Paid by
           </label>
           <div className="flex gap-2 flex-wrap">
-            {mockMembers.map((member) => {
+            {members.map((member) => {
               const selected = paidBy === member.id;
               return (
                 <button
@@ -109,22 +136,12 @@ export default function AddExpensePage({
                   }`}
                 >
                   <MemberAvatar name={member.name} color={member.avatar_color} size="sm" />
-                  <span
-                    className={`text-sm font-medium ${
-                      selected ? "text-white" : "text-[#a1a1aa]"
-                    }`}
-                  >
+                  <span className={`text-sm font-medium ${selected ? "text-white" : "text-[#a1a1aa]"}`}>
                     {member.name}
                   </span>
                   {selected && (
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path
-                        d="M2.5 7L5.5 10L11.5 4"
-                        stroke="#22c55e"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+                      <path d="M2.5 7L5.5 10L11.5 4" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                 </button>
@@ -143,18 +160,18 @@ export default function AddExpensePage({
               type="button"
               onClick={() =>
                 setSplitBetween(
-                  splitBetween.length === mockMembers.length
+                  splitBetween.length === members.length
                     ? []
-                    : mockMembers.map((m) => m.id)
+                    : members.map((m) => m.id)
                 )
               }
               className="text-[#22c55e] text-xs font-medium hover:underline"
             >
-              {splitBetween.length === mockMembers.length ? "Deselect all" : "Select all"}
+              {splitBetween.length === members.length ? "Deselect all" : "Select all"}
             </button>
           </div>
           <div className="flex gap-2 flex-wrap">
-            {mockMembers.map((member) => {
+            {members.map((member) => {
               const selected = splitBetween.includes(member.id);
               return (
                 <button
@@ -168,11 +185,7 @@ export default function AddExpensePage({
                   }`}
                 >
                   <MemberAvatar name={member.name} color={member.avatar_color} size="sm" />
-                  <span
-                    className={`text-sm font-medium ${
-                      selected ? "text-white" : "text-[#a1a1aa]"
-                    }`}
-                  >
+                  <span className={`text-sm font-medium ${selected ? "text-white" : "text-[#a1a1aa]"}`}>
                     {member.name}
                   </span>
                 </button>
@@ -180,13 +193,11 @@ export default function AddExpensePage({
             })}
           </div>
           {splitBetween.length === 0 && (
-            <p className="text-[#ef4444] text-xs mt-2">
-              Select at least one person
-            </p>
+            <p className="text-[#ef4444] text-xs mt-2">Select at least one person</p>
           )}
-          {splitBetween.length > 0 && amount && parseFloat(amount) > 0 && (
+          {splitBetween.length > 0 && parsedAmount > 0 && (
             <p className="text-[#a1a1aa] text-xs mt-2">
-              ${(parseFloat(amount) / splitBetween.length).toFixed(2)} per person
+              ${(parsedAmount / splitBetween.length).toFixed(2)} per person
             </p>
           )}
         </div>

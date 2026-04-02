@@ -1,85 +1,12 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { getTrip } from "@/lib/storage";
+import { calculateBalances, calculateSettlements } from "@/lib/settlement";
+import type { Trip, Settlement } from "@/lib/types";
 import Header from "@/components/Header";
 import MemberAvatar from "@/components/MemberAvatar";
-
-const mockMembers = [
-  { id: "1", name: "Trey", avatar_color: "#22c55e" },
-  { id: "2", name: "Alex", avatar_color: "#3b82f6" },
-  { id: "3", name: "Sam", avatar_color: "#f59e0b" },
-  { id: "4", name: "Jordan", avatar_color: "#ef4444" },
-];
-
-const mockExpenses = [
-  {
-    id: "1",
-    amount: 120.0,
-    paid_by: "1",
-    split_between: ["1", "2", "3", "4"],
-  },
-  {
-    id: "2",
-    amount: 35.5,
-    paid_by: "2",
-    split_between: ["1", "2", "3"],
-  },
-  {
-    id: "3",
-    amount: 67.8,
-    paid_by: "3",
-    split_between: ["1", "2", "3", "4"],
-  },
-];
-
-interface Settlement {
-  from: string;
-  to: string;
-  amount: number;
-}
-
-function calcSettlements(): Settlement[] {
-  const bal: Record<string, number> = {};
-  mockMembers.forEach((m) => (bal[m.id] = 0));
-
-  mockExpenses.forEach((exp) => {
-    const share = exp.amount / exp.split_between.length;
-    bal[exp.paid_by] += exp.amount;
-    exp.split_between.forEach((id) => (bal[id] -= share));
-  });
-
-  // Greedy settlement algorithm
-  const debtors = mockMembers
-    .filter((m) => bal[m.id] < -0.005)
-    .map((m) => ({ id: m.id, amount: -bal[m.id] }))
-    .sort((a, b) => b.amount - a.amount);
-
-  const creditors = mockMembers
-    .filter((m) => bal[m.id] > 0.005)
-    .map((m) => ({ id: m.id, amount: bal[m.id] }))
-    .sort((a, b) => b.amount - a.amount);
-
-  const settlements: Settlement[] = [];
-
-  let d = 0;
-  let c = 0;
-  while (d < debtors.length && c < creditors.length) {
-    const transfer = Math.min(debtors[d].amount, creditors[c].amount);
-    if (transfer > 0.005) {
-      settlements.push({
-        from: debtors[d].id,
-        to: creditors[c].id,
-        amount: Math.round(transfer * 100) / 100,
-      });
-    }
-    debtors[d].amount -= transfer;
-    creditors[c].amount -= transfer;
-    if (debtors[d].amount < 0.005) d++;
-    if (creditors[c].amount < 0.005) c++;
-  }
-
-  return settlements;
-}
 
 export default function SettlePage({
   params,
@@ -87,8 +14,18 @@ export default function SettlePage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = use(params);
-  const settlements = calcSettlements();
+  const router = useRouter();
+  const [trip, setTrip] = useState<Trip | null>(null);
   const [settled, setSettled] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    const t = getTrip(code);
+    if (!t) {
+      router.replace(`/trip/${code}`);
+      return;
+    }
+    setTrip(t);
+  }, [code, router]);
 
   const toggleSettled = (i: number) => {
     setSettled((prev) => {
@@ -98,6 +35,16 @@ export default function SettlePage({
     });
   };
 
+  if (!trip) {
+    return (
+      <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#22c55e] border-t-transparent rounded-full animate-spin" />
+      </main>
+    );
+  }
+
+  const balances = calculateBalances(trip.members, trip.expenses);
+  const settlements: Settlement[] = calculateSettlements(balances);
   const remaining = settlements.length - settled.size;
 
   return (
@@ -105,19 +52,13 @@ export default function SettlePage({
       <Header title="Settle Up" backHref={`/trip/${code}`} />
 
       <div className="max-w-md mx-auto px-4 pt-6 pb-10">
-        {/* Summary */}
+        {/* Summary card */}
         <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-5 mb-6 text-center">
           {remaining === 0 ? (
             <>
               <div className="w-12 h-12 bg-[#22c55e]/10 rounded-full flex items-center justify-center mx-auto mb-3">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M5 13l4 4L19 7"
-                    stroke="#22c55e"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
+                  <path d="M5 13l4 4L19 7" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
               <p className="text-white font-semibold text-lg">All settled up!</p>
@@ -144,10 +85,7 @@ export default function SettlePage({
         ) : (
           <div className="space-y-3">
             {settlements.map((s, i) => {
-              const from = mockMembers.find((m) => m.id === s.from)!;
-              const to = mockMembers.find((m) => m.id === s.to)!;
               const isDone = settled.has(i);
-
               return (
                 <div
                   key={i}
@@ -158,8 +96,8 @@ export default function SettlePage({
                   <div className="flex items-center gap-3">
                     {/* From */}
                     <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                      <MemberAvatar name={from.name} color={from.avatar_color} size="md" />
-                      <span className="text-[#a1a1aa] text-xs">{from.name}</span>
+                      <MemberAvatar name={s.from.name} color={s.from.avatar_color} size="md" />
+                      <span className="text-[#a1a1aa] text-xs">{s.from.name}</span>
                     </div>
 
                     {/* Arrow + amount */}
@@ -170,13 +108,7 @@ export default function SettlePage({
                       <div className="flex items-center gap-1 w-full">
                         <div className="flex-1 h-px bg-[#22c55e]/40" />
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                          <path
-                            d="M3 8h10M9 4l4 4-4 4"
-                            stroke="#22c55e"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
+                          <path d="M3 8h10M9 4l4 4-4 4" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                         <div className="flex-1 h-px bg-[#22c55e]/40" />
                       </div>
@@ -184,12 +116,11 @@ export default function SettlePage({
 
                     {/* To */}
                     <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                      <MemberAvatar name={to.name} color={to.avatar_color} size="md" />
-                      <span className="text-[#a1a1aa] text-xs">{to.name}</span>
+                      <MemberAvatar name={s.to.name} color={s.to.avatar_color} size="md" />
+                      <span className="text-[#a1a1aa] text-xs">{s.to.name}</span>
                     </div>
                   </div>
 
-                  {/* Mark settled button */}
                   <button
                     onClick={() => toggleSettled(i)}
                     className={`mt-3 w-full rounded-lg py-2 text-sm font-medium transition-colors ${
