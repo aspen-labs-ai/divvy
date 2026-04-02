@@ -179,11 +179,8 @@ export default function ExpenseMatrix({
                           >
                             {settled ? (
                               <div
-                                className="w-8 h-8 rounded-full flex items-center justify-center mx-auto border-2"
-                                style={{
-                                  borderColor: m.avatar_color,
-                                  backgroundColor: `${m.avatar_color}20`,
-                                }}
+                                className="w-8 h-8 rounded-full flex items-center justify-center mx-auto"
+                                style={{ backgroundColor: m.avatar_color }}
                               >
                                 <svg
                                   width="14"
@@ -193,7 +190,7 @@ export default function ExpenseMatrix({
                                 >
                                   <path
                                     d="M2.5 7L5.5 10L11.5 4"
-                                    stroke={m.avatar_color}
+                                    stroke="white"
                                     strokeWidth="2"
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
@@ -278,9 +275,9 @@ export default function ExpenseMatrix({
             <span>Owes</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-4 h-4 rounded-full bg-[#a1a1aa]/20 border-2 border-[#a1a1aa] flex items-center justify-center">
+            <div className="w-4 h-4 rounded-full bg-[#a1a1aa] flex items-center justify-center">
               <svg width="8" height="8" viewBox="0 0 14 14" fill="none">
-                <path d="M2.5 7L5.5 10L11.5 4" stroke="#a1a1aa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
             <span>Settled</span>
