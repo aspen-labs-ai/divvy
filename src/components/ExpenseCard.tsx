@@ -1,21 +1,10 @@
-interface Member {
-  id: string;
-  name: string;
-  avatar_color: string;
-}
-
-interface Expense {
-  id: string;
-  description: string;
-  amount: number;
-  paid_by: string;
-  split_between: string[];
-  created_at: string;
-}
+import type { Expense, Member } from "@/lib/types";
+import MemberAvatar from "./MemberAvatar";
 
 interface ExpenseCardProps {
   expense: Expense;
   members: Member[];
+  onDelete?: (id: string) => void;
 }
 
 function timeAgo(dateStr: string): string {
@@ -26,7 +15,7 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-export default function ExpenseCard({ expense, members }: ExpenseCardProps) {
+export default function ExpenseCard({ expense, members, onDelete }: ExpenseCardProps) {
   const paidBy = members.find((m) => m.id === expense.paid_by);
   const splitMembers = members.filter((m) => expense.split_between.includes(m.id));
 
@@ -65,6 +54,15 @@ export default function ExpenseCard({ expense, members }: ExpenseCardProps) {
           <p className="text-[#a1a1aa] text-xs mt-0.5">{timeAgo(expense.created_at)}</p>
         </div>
       </div>
+
+      {onDelete && (
+        <button
+          onClick={() => onDelete(expense.id)}
+          className="mt-3 w-full text-[#a1a1aa] hover:text-[#ef4444] text-xs py-1.5 rounded-lg hover:bg-[#ef4444]/10 transition-colors border border-transparent hover:border-[#ef4444]/20"
+        >
+          Delete expense
+        </button>
+      )}
     </div>
   );
 }
